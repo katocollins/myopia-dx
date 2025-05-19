@@ -9,6 +9,11 @@ const authMiddleware = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = { id: decoded.id, role: decoded.role };
+
+    if (req.originalUrl.includes("/users") && decoded.role !== "admin") {
+      return res.status(403).json({ error: "Access denied: Admins only" });
+    }
+
     next();
   } catch (error) {
     console.error("Auth middleware error:", error);

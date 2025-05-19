@@ -308,6 +308,48 @@ const resetPassword = async (req, res) => {
   }
 };
 
+// Fetch paginated users (for admin)
+const getUsers = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search = "" } = req.query;
+    const query = {
+      role: "doctor", // Only fetch doctors
+      ...(search && { name: { $regex: search, $options: "i" } }),
+    };
+
+    const users = await User.find(query)
+      .select("-passwordHash")
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit))
+      .lean();
+
+    const totalUsers = await User.countDocuments(query);
+
+    res.json({
+      users,
+      totalUsers,
+      totalPages: Math.ceil(totalUsers / limit),
+      currentPage: parseInt(page),
+    });
+  } catch (error) {
+    console.error("Get users error:", error);
+    res.status(500).json({ error: "Server error while fetching users." });
+  }
+};
+
+// Fetch total user count (for admin)
+const getUserCount = async (req, res) => {
+  try {
+    const count = await User.countDocuments({ role: "doctor" });
+    res.json({ count });
+  } catch (error) {
+    console.error("Get user count error:", error);
+    res.status(500).json({ error: "Server error while fetching user count." });
+  }
+};
+
+
+
 module.exports = {
   register,
   login,
@@ -316,9 +358,13 @@ module.exports = {
   deleteProfile,
   requestPasswordReset,
   resetPassword,
+  getUsers,
+  getUserCount,
   validateRegister,
   validateLogin,
   validateUpdateProfile,
   validatePasswordReset,
   validateResetPassword,
 };
+
+

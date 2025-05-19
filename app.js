@@ -13,6 +13,7 @@ const authRoutes = require("./routes/auth");
 const patientRoutes = require("./routes/patient");
 const retinalImageRoutes = require("./routes/retinalImage");
 const diagnosisRoutes = require("./routes/diagnosis");
+const recommendationRoutes = require("./routes/recommendation");
 
 // Initialize Express app
 const app = express();
@@ -73,6 +74,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/patients", patientRoutes);
 app.use("/api/retinal-images", retinalImageRoutes);
 app.use("/api/diagnoses", diagnosisRoutes);
+app.use("/api/recommendations", recommendationRoutes); 
 
 // MongoDB connection
 const connectDB = async () => {

@@ -6,28 +6,24 @@ const Diagnosis = require("../models/Diagnosis");
 const path = require("path");
 const fs = require("fs").promises;
 
-// Input validation for uploading a retinal image
+// Input validation (unchanged)
 const validateUploadRetinalImage = [
   body("patientId").isMongoId().withMessage("Invalid patient ID"),
 ];
 
-// Input validation for getting/deleting a retinal image
 const validateRetinalImageId = [
   param("id").isMongoId().withMessage("Invalid retinal image ID"),
 ];
 
-// Input validation for updating a retinal image
 const validateUpdateRetinalImage = [
   param("id").isMongoId().withMessage("Invalid retinal image ID"),
   body("patientId").optional().isMongoId().withMessage("Invalid patient ID"),
 ];
 
-// Input validation for getting images by patient
 const validatePatientId = [
   param("patientId").isMongoId().withMessage("Invalid patient ID"),
 ];
 
-// Input validation for fetching all images with pagination and filters
 const validateFetchRetinalImages = [
   query("page").optional().isInt({ min: 1 }).toInt().withMessage("Invalid page number"),
   query("limit").optional().isInt({ min: 1 }).toInt().withMessage("Invalid limit"),
@@ -35,7 +31,7 @@ const validateFetchRetinalImages = [
   query("patientId").optional().isMongoId().withMessage("Invalid patient ID"),
 ];
 
-// Upload a retinal image
+// Upload a retinal image (unchanged)
 const uploadRetinalImage = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -110,7 +106,7 @@ const getRetinalImages = async (req, res) => {
 
     const { page = 1, limit = 10, search = "", patientId } = req.query;
 
-    const query = {};
+    const query = { uploadedBy: req.user.id }; // Filter by authenticated doctor
     if (patientId) {
       query.patientId = patientId;
     }
@@ -174,7 +170,7 @@ const getRetinalImageById = async (req, res) => {
       return res.status(404).json({ error: "Retinal image not found." });
     }
 
-    if (retinalImage.patientId.doctorId.toString() !== req.user.id) {
+    if (retinalImage.uploadedBy.toString() !== req.user.id) {
       return res.status(403).json({ error: "Unauthorized access." });
     }
 
@@ -208,7 +204,10 @@ const getRetinalImagesByPatient = async (req, res) => {
       return res.status(403).json({ error: "Unauthorized access." });
     }
 
-    const retinalImages = await RetinalImage.find({ patientId }).populate({
+    const retinalImages = await RetinalImage.find({
+      patientId,
+      uploadedBy: req.user.id, // Filter by authenticated doctor
+    }).populate({
       path: "uploadedBy",
       select: "name",
     });
@@ -245,7 +244,7 @@ const updateRetinalImage = async (req, res) => {
       return res.status(404).json({ error: "Retinal image not found." });
     }
 
-    if (retinalImage.patientId.doctorId.toString() !== req.user.id) {
+    if (retinalImage.uploadedBy.toString() !== req.user.id) {
       return res.status(403).json({ error: "Unauthorized access." });
     }
 
@@ -284,16 +283,13 @@ const deleteRetinalImage = async (req, res) => {
 
     const { id } = req.params;
 
-    const retinalImage = await RetinalImage.findById(id).populate({
-      path: "patientId",
-      select: "doctorId",
-    });
+    const retinalImage = await RetinalImage.findById(id);
 
     if (!retinalImage) {
       return res.status(404).json({ error: "Retinal image not found." });
     }
 
-    if (retinalImage.patientId.doctorId.toString() !== req.user.id) {
+    if (retinalImage.uploadedBy.toString() !== req.user.id) {
       return res.status(403).json({ error: "Unauthorized access." });
     }
 
@@ -327,14 +323,7 @@ const deleteRetinalImage = async (req, res) => {
 // Get total retinal image count for the logged-in doctor
 const getRetinalImageCount = async (req, res) => {
   try {
-    const images = await RetinalImage.find().populate({
-      path: "patientId",
-      select: "doctorId",
-    });
-
-    const count = images.filter(
-      (image) => image.patientId?.doctorId.toString() === req.user.id
-    ).length;
+    const count = await RetinalImage.countDocuments({ uploadedBy: req.user.id });
 
     res.json({ count });
   } catch (error) {
